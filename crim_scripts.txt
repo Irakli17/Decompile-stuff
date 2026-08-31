@@ -1,0 +1,543 @@
+=== Players.analytical_iNfiniTe.PlayerGui.ClientScripts.Controllers.ClientCommands.ToolList ===
+--[[
+__________                   __               __    __________              .__
+\______   \_______  ____    |__| ____   _____/  |_  \______   \ ____ _____  |  |
+ |     ___/\_  __ \/  _ \   |  |/ __ \_/ ___\   __\  |       _// __ \\__  \ |  |
+ |    |     |  | \(  <_> )  |  \  ___/\  \___|  |    |    |   \  ___/ / __ \|  |__
+ |____|     |__|   \____/\__|  |\___  >\___  >__|    |____|_  /\___  >____  /____/
+                        \______|    \/     \/               \/     \/     \/
+]]
+--                           Project Real  |  Luau Decompiler
+--                                   Made by @zinvera
+--File: Players.analytical_iNfiniTe.PlayerGui.ClientScripts.Controllers.ClientCommands.ToolList
+--                               Dumped in 0.00227 seconds
+--                          Bytecode version 9  |  26 functions
+
+game:GetService("ContentProvider")
+game:GetService("GuiService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+game:GetService("UserInputService")
+local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+local GobUi = PlayerGui:WaitForChild("GobUi")
+local ToolListGet = ReplicatedStorage:WaitForChild("Assets").GobEvents:FindFirstChild("ToolListGet")
+local RemoteEventHandler = require(ReplicatedStorage.Shared.Utils.RemoteEventHandler)
+require(ReplicatedStorage.Shared.Utils.GobUiUtility)
+require(ReplicatedStorage.Shared.Utils.BindableEventHandler)
+local Assets = ReplicatedStorage:WaitForChild("Assets")
+local newToolList = Assets:FindFirstChild("AdonisUi").folder.newToolList
+local SpawnButton = require(script.SpawnButton)
+local PlayerSelection = require(script.PlayerSelection)
+local SelectedPlayerTool = require(script.SelectedPlayerTool)
+local ResizableFrame = require(script.ResizableFrame)
+local vide = require(ReplicatedStorage.Packages.vide)
+local u95 = {}
+local u96 = {}
+local u97 = {}
+u97.__index = u97
+local function getDisplayName(p1) -- Line: 73 -- upvalues: u95 (val)
+    if u95[p1] then
+        return u95[p1]
+    end
+    return p1
+end
+function u97.new(p1) -- Line: 77 -- upvalues: u97 (val), ResizableFrame (val)
+    local v1 = setmetatable(p1, u97)
+    v1._connections = {}
+    v1._components = {}
+    v1.selectedPlayerTools = {}
+    v1.spawnedTools = {}
+    v1.Ui = v1:setupUi()
+    v1.SelectedPlayer = ""
+    ResizableFrame.new({resizable = true, dragable = true, frame = v1.Ui, dragFrame = v1.Ui.Holder.Drag})
+    v1:storagePage()
+    return v1
+end
+function u97:toggleOffAllPages() -- Line: 91
+    local pages = self.pages
+    local v1 = nil
+    local v2 = nil
+    for i, j in pages, v1, v2 do
+        j.Visible = false
+    end
+    local buttons = self.buttons
+    v1 = nil
+    v2 = nil
+    for k, n in buttons, v1, v2 do
+        n.BackgroundTransparency = 0.7
+        n.TextTransparency = 0.7
+    end
+end
+function u97:refresh() -- Line: 101 -- upvalues: ToolListGet (val), SelectedPlayerTool (val), u95 (val)
+    local Backpack, SpawnedTools, v1, v2
+    self.et = 0
+    local selectedPlayerTools = self.selectedPlayerTools
+    local v3 = nil
+    local v4 = nil
+    for i, j in selectedPlayerTools, v3, v4 do
+        j:Destroy()
+    end
+    local spawnedTools = self.spawnedTools
+    v3 = nil
+    v4 = nil
+    for k, n in spawnedTools, v3, v4 do
+        n:Destroy()
+    end
+    local v5 = ToolListGet:InvokeServer(self.Id, self.SelectedPlayer)
+    local template = self.Ui.Holder.Main.ScrollingFrame.TabFrame.Frames.Added.ScrollingFrame.template
+    if not v5 then
+        return
+    end
+    if v5.Backpack then
+        Backpack = v5.Backpack
+        v1 = nil
+        v2 = nil
+        for m, i5 in Backpack, v1, v2 do
+            table.insert(self.selectedPlayerTools, SelectedPlayerTool.new({ToolListObject = self, Tool = i5.MainString, Template = self.Ui.Holder.Main.ScrollingFrame.TabFrame.Frames.Inventories.Tools.template, Parent = self.Ui.Holder.Main.ScrollingFrame.TabFrame.Frames.Inventories.Tools}))
+        end
+    end
+    if v5.SpawnedTools then
+        local v6 = #v5.SpawnedTools
+        if 0 < v6 then
+            local Tool, v7, v8
+            SpawnedTools = v5.SpawnedTools
+            v1 = nil
+            v2 = nil
+            for i6, i7 in SpawnedTools, v1, v2 do
+                v7 = template:Clone()
+                v7.Parent = template.Parent
+                Tool = i7.Tool
+                if not (u95[Tool]) then
+                    v8 = Tool
+                else
+                    v8 = u95[Tool]
+                end
+                v7.Text = ("[%*] %*"):format(i7.Owner, v8)
+                v7.Visible = true
+                table.insert(v9.spawnedTools, v7)
+            end
+        end
+    end
+end
+function u97:inventoriesPage() -- Line: 146
+    self:toggleOffAllPages()
+    self.buttons.inventories.TextTransparency = 0
+    self.buttons.inventories.BackgroundTransparency = 0
+    self.pages.inventories.Visible = true
+end
+function u97:storagePage() -- Line: 154
+    self:toggleOffAllPages()
+    self.buttons.storage.TextTransparency = 0
+    self.buttons.storage.BackgroundTransparency = 0
+    self.pages.storage.Visible = true
+end
+function u97:gearPage() -- Line: 162
+    self:toggleOffAllPages()
+    self.buttons.gear.TextTransparency = 0
+    self.buttons.gear.BackgroundTransparency = 0
+    self.pages.gear.Visible = true
+end
+function u97:addedPage() -- Line: 170
+    self:toggleOffAllPages()
+    self.buttons.added.TextTransparency = 0
+    self.buttons.added.BackgroundTransparency = 0
+    self.pages.added.Visible = true
+end
+function u97:setupUi() -- Line: 178 -- upvalues: newToolList (val), GobUi (val), SpawnButton (val), Players (val), PlayerSelection (val), PlayerGui (val), RunService (val)
+    local v1
+    local v2 = newToolList:Clone()
+    v2.Parent = GobUi
+    table.sort(self.Tools, function(p1, p2) -- Line: 183
+        local v1 = p1:gsub("[^%w%s_]+", "")
+        local v2 = v1 < p2:gsub("[^%w%s_]+", "")
+        return v2
+    end)
+    local Tools = self.Tools
+    v1 = nil
+    local v3 = nil
+    for i, j in Tools, v1, v3 do
+        table.insert(self._components, SpawnButton.new({Parent = v2.Holder.Main.ScrollingFrame.TabFrame.Frames.Storage.ScrollingFrame, Tool = j}))
+    end
+    local template = v2.Holder.Main.ScrollingFrame.TabFrame.Frames.Inventories.Players.template
+    local Players_2 = v2.Holder.Main.ScrollingFrame.TabFrame.Frames.Inventories.Players
+    local Gear = v2.Holder.Main.ScrollingFrame.TabFrame.Frames.Gear
+    v2.Holder.Drag.Close.Activated:Connect(function() -- Line: 203 -- upvalues: self (val)
+        self:Destroy()
+    end)
+    self.buttons = {gear = v2.Holder.Main.ScrollingFrame.TabFrame.Buttons.Gear, inventories = v2.Holder.Main.ScrollingFrame.TabFrame.Buttons.Inventories, storage = v2.Holder.Main.ScrollingFrame.TabFrame.Buttons.Storage, added = v2.Holder.Main.ScrollingFrame.TabFrame.Buttons.Added}
+    local v4 = {inventories = v2.Holder.Main.ScrollingFrame.TabFrame.Frames.Inventories, storage = v2.Holder.Main.ScrollingFrame.TabFrame.Frames.Storage, gear = v2.Holder.Main.ScrollingFrame.TabFrame.Frames.Gear, added = v2.Holder.Main.ScrollingFrame.TabFrame.Frames.Added}
+    self.pages = v4
+    self.buttons.storage.Activated:Connect(function() -- Line: 221 -- upvalues: self (val)
+        self:storagePage()
+    end)
+    v2.Holder.Drag.Refresh.Activated:Connect(function() -- Line: 225 -- upvalues: self (val)
+        self:refresh()
+    end)
+    if not self.PrivateServer then
+        self.buttons.added.Activated:Connect(function() -- Line: 238 -- upvalues: self (val)
+            self:addedPage()
+        end)
+        self.buttons.inventories.Activated:Connect(function() -- Line: 241 -- upvalues: self (val)
+            self:inventoriesPage()
+        end)
+        v2.Holder.Main.ScrollingFrame.TabFrame.Frames.Inventories.Tools.RemoveAll.Activated:Connect(function() -- Line: 245 -- upvalues: self (val)
+            if self.selectedPlayerTools then
+                local v1 = 1
+                local v2 = -1
+                for i = #self.selectedPlayerTools, v1, v2 do
+                    self.selectedPlayerTools[i]:clickedRemove()
+                end
+            end
+        end)
+        for k, n in Players:GetPlayers() do
+            PlayerSelection.new({template = template, Parent = Players_2, Target = n, ToolListObject = self})
+        end
+        v4 = Players.PlayerAdded:Connect(function(p1) -- Line: 262 -- upvalues: PlayerSelection (upval), template (val), Players_2 (val), self (val)
+            PlayerSelection.new({template = template, Parent = Players_2, Target = p1, ToolListObject = self})
+        end)
+        table.insert(self._connections, v4)
+    else
+        local buttons = self.buttons
+        local v5 = nil
+        local v6 = nil
+        for m, i5 in buttons, v5, v6 do
+            if m ~= "storage" then
+                i5.Visible = false
+            end
+        end
+    end
+    if not self.PrivateServer then
+        local conch = require(PlayerGui:FindFirstChild("Internal").conch)
+        Gear.Spawn.Activated:Connect(function() -- Line: 278 -- upvalues: Gear (val), conch (val)
+            local Text = Gear.TextBox.Text
+            if Text == "" or Text == " " or Text == nil then
+                return
+            end
+            conch.execute((("spawngear me %*"):format(Text)))
+        end)
+        self.buttons.gear.Activated:Connect(function() -- Line: 286 -- upvalues: self (val)
+            self:gearPage()
+        end)
+    else
+        Gear.Visible = false
+        self.buttons.gear.Visible = false
+    end
+    v2.Visible = true
+    self.et = 0
+    v4 = RunService.RenderStepped:Connect(function(p1) -- Line: 294 -- upvalues: self (val)
+        local v1 = self
+        v1.et = v1.et + p1
+        if 2 <= self.et then
+            self:refresh()
+        end
+    end)
+    table.insert(self._connections, v4)
+    return v2
+end
+function u97:Destroy() -- Line: 305 -- upvalues: RemoteEventHandler (val)
+    local _components, _connections, v1, v2
+    if self._components then
+        _components = self._components
+        v1 = nil
+        v2 = nil
+        for i, j in _components, v1, v2 do
+            j:Destroy()
+        end
+    end
+    if self._connections then
+        _connections = self._connections
+        v1 = nil
+        v2 = nil
+        for k, n in _connections, v1, v2 do
+            n:Disconnect()
+        end
+    end
+    RemoteEventHandler.FireServer("DisconnectToolList", self.Id)
+    self.Ui:Destroy()
+    table.clear(self)
+end
+function u97.init() -- Line: 322 -- upvalues: RemoteEventHandler (val), u97 (val)
+    RemoteEventHandler.AttachCallback("ToolList", function(...) -- Line: 323 -- upvalues: u97 (upval)
+        u97.new(...)
+    end)
+end
+;(function() -- Line: 37 -- upvalues: ReplicatedStorage (val), u95 (val), u96 (val)
+    local DisplayName, v1
+    local Storage = ReplicatedStorage:FindFirstChild("Storage")
+    local ItemStats = Storage
+    if ItemStats then
+        ItemStats = Storage:FindFirstChild("ItemStats")
+    end
+    if not ItemStats then
+        return
+    end
+    for k, v in pairs(ItemStats:GetChildren()) do
+        for k2, i in pairs(v:GetChildren()) do
+            DisplayName = i:FindFirstChild("DisplayName")
+            if DisplayName then
+                v1 = string.gsub(DisplayName.Value, " ", "_")
+                local u61 = string.gsub(v1, "'", "")
+                pcall(function() -- Line: 54 -- upvalues: i (val), u95 (upval), u61 (ref)
+                    if not (i:FindFirstChild("IsDevProduct")) then
+                        if not (i:FindFirstChild("IsGamepass")) then
+                            if not (i:FindFirstChild("NoPS+")) then
+                                u95[i.Name] = u61
+                            elseif not (i["NoPS+"].Value) then
+                                u95[i.Name] = u61
+                            end
+                        elseif i.IsGamepass.Value then
+                        end
+                    elseif i.IsDevProduct.Value then
+                    end
+                end)
+                table.insert(u96, string.lower(u61))
+            end
+        end
+    end
+    print(u95)
+end)()
+return u97
+
+=== StarterPlayer.StarterPlayerScripts.PlayerModule.CameraModule.VRCameraTeleportDetector ===
+--[[
+__________                   __               __    __________              .__
+\______   \_______  ____    |__| ____   _____/  |_  \______   \ ____ _____  |  |
+ |     ___/\_  __ \/  _ \   |  |/ __ \_/ ___\   __\  |       _// __ \\__  \ |  |
+ |    |     |  | \(  <_> )  |  \  ___/\  \___|  |    |    |   \  ___/ / __ \|  |__
+ |____|     |__|   \____/\__|  |\___  >\___  >__|    |____|_  /\___  >____  /____/
+                        \______|    \/     \/               \/     \/     \/
+]]
+--                           Project Real  |  Luau Decompiler
+--                                   Made by @zinvera
+--File: StarterPlayer.StarterPlayerScripts.PlayerModule.CameraModule.VRCameraTeleportDetector
+--                              Dumped in 0.000129 seconds
+--                          Bytecode version 9  |  2 functions
+
+local u0 = {JUMP_STUDS = 4, SETTLED_STUDS = 1, DEBOUNCE_SECONDS = 0.25}
+function u0.shouldRecenter(p1, p2, p3, p4) -- Line: 29 -- upvalues: u0 (val)
+    if p2 <= u0.JUMP_STUDS then
+        return false
+    end
+    if p1 == nil then
+        if p3 ~= nil then
+            if p4 - p3 < u0.DEBOUNCE_SECONDS then
+                return false
+            end
+            return true
+        end
+        return true
+    end
+    if u0.SETTLED_STUDS <= p1 then
+        return false
+    end
+    if p3 == nil then
+        return true
+    end
+    if p4 - p3 < u0.DEBOUNCE_SECONDS then
+        return false
+    end
+    return true
+end
+return u0
+
+=== StarterPlayer.StarterPlayerScripts.PlayerModule.CameraModule.VRCameraTeleportDetector.spec ===
+--[[
+__________                   __               __    __________              .__
+\______   \_______  ____    |__| ____   _____/  |_  \______   \ ____ _____  |  |
+ |     ___/\_  __ \/  _ \   |  |/ __ \_/ ___\   __\  |       _// __ \\__  \ |  |
+ |    |     |  | \(  <_> )  |  \  ___/\  \___|  |    |    |   \  ___/ / __ \|  |__
+ |____|     |__|   \____/\__|  |\___  >\___  >__|    |____|_  /\___  >____  /____/
+                        \______|    \/     \/               \/     \/     \/
+]]
+--                           Project Real  |  Luau Decompiler
+--                                   Made by @zinvera
+--File: StarterPlayer.StarterPlayerScripts.PlayerModule.CameraModule.VRCameraTeleportDetector.spec
+--                              Dumped in 0.000489 seconds
+--                          Bytecode version 9  |  9 functions
+
+local CorePackages = game:GetService("CorePackages")
+local JestGlobals = require(CorePackages.Packages.Dev.JestGlobals)
+local expect = JestGlobals.expect
+local it = JestGlobals.it
+local VRCameraTeleportDetector = require(script.Parent.VRCameraTeleportDetector)
+local shouldRecenter = VRCameraTeleportDetector.shouldRecenter
+local JUMP_STUDS = VRCameraTeleportDetector.JUMP_STUDS
+local SETTLED_STUDS = VRCameraTeleportDetector.SETTLED_STUDS
+local DEBOUNCE_SECONDS = VRCameraTeleportDetector.DEBOUNCE_SECONDS
+JestGlobals.describe("VRCameraTeleportDetector.shouldRecenter", function() -- Line: 14 -- upvalues: it (val), expect (val), shouldRecenter (val), JUMP_STUDS (val), SETTLED_STUDS (val), DEBOUNCE_SECONDS (val)
+    it("fires on a discrete jump from rest (no prior step, never recentered)", function() -- Line: 15 -- upvalues: expect (upval), shouldRecenter (upval), JUMP_STUDS (upval)
+        expect(shouldRecenter(nil, JUMP_STUDS + 10, nil, 100)).toBe(true)
+    end)
+    it("fires on a discrete jump preceded by a near-still frame", function() -- Line: 19 -- upvalues: expect (upval), shouldRecenter (upval), SETTLED_STUDS (upval), JUMP_STUDS (upval)
+        expect(shouldRecenter(SETTLED_STUDS - 0.5, JUMP_STUDS + 10, nil, 100)).toBe(true)
+    end)
+    it("does not fire for sub-threshold motion", function() -- Line: 23 -- upvalues: expect (upval), shouldRecenter (upval), JUMP_STUDS (upval)
+        expect(shouldRecenter(0, JUMP_STUDS - 0.1, nil, 100)).toBe(false)
+        expect(shouldRecenter(0, 0, nil, 100)).toBe(false)
+    end)
+    it("does not fire when the previous frame was already moving (continuous motion)", function() -- Line: 28 -- upvalues: expect (upval), shouldRecenter (upval), SETTLED_STUDS (upval), JUMP_STUDS (upval)
+        expect(shouldRecenter(SETTLED_STUDS + 0.1, JUMP_STUDS + 10, nil, 100)).toBe(false)
+    end)
+    it("does not fire within the debounce interval", function() -- Line: 33 -- upvalues: expect (upval), shouldRecenter (upval), JUMP_STUDS (upval), DEBOUNCE_SECONDS (upval)
+        expect(shouldRecenter(nil, JUMP_STUDS + 10, 100, 100 + DEBOUNCE_SECONDS - 0.01)).toBe(false)
+    end)
+    it("fires again once the debounce interval has elapsed", function() -- Line: 38 -- upvalues: expect (upval), shouldRecenter (upval), JUMP_STUDS (upval), DEBOUNCE_SECONDS (upval)
+        expect(shouldRecenter(nil, JUMP_STUDS + 10, 100, 100 + DEBOUNCE_SECONDS + 0.01)).toBe(true)
+    end)
+    it("does not retrigger every frame under continuous per-frame CFrame writes (oscillation guard)", function() -- Line: 43 -- upvalues: JUMP_STUDS (upval), shouldRecenter (upval), expect (upval)
+        local v1 = 0
+        local v2 = nil
+        local v3 = nil
+        local v4 = 0
+        local v5 = JUMP_STUDS + 10
+        local v6 = 120
+        local v7 = 1
+        for i = 1, v6, v7 do
+            if shouldRecenter(v2, v5, v3, v1) then
+                v4 = v4 + 1
+                v3 = v1
+            end
+            v2 = v5
+            v1 = v1 + 0.016666666666666666
+        end
+        expect(v4).toBe(1)
+    end)
+end)
+
+=== ReplicatedStorage.Shared.Utils.Player.onPlayerJoin ===
+--[[
+__________                   __               __    __________              .__
+\______   \_______  ____    |__| ____   _____/  |_  \______   \ ____ _____  |  |
+ |     ___/\_  __ \/  _ \   |  |/ __ \_/ ___\   __\  |       _// __ \\__  \ |  |
+ |    |     |  | \(  <_> )  |  \  ___/\  \___|  |    |    |   \  ___/ / __ \|  |__
+ |____|     |__|   \____/\__|  |\___  >\___  >__|    |____|_  /\___  >____  /____/
+                        \______|    \/     \/               \/     \/     \/
+]]
+--                           Project Real  |  Luau Decompiler
+--                                   Made by @zinvera
+--               File: ReplicatedStorage.Shared.Utils.Player.onPlayerJoin
+--                              Dumped in 0.000202 seconds
+--                          Bytecode version 9  |  4 functions
+
+local Players = game:GetService("Players")
+return function(p1) -- Line: 3 -- upvalues: Players (val)
+    for i, j in Players:GetPlayers() do
+        task.spawn(function() -- Line: 5 -- upvalues: j (val), Players (upval), p1 (val)
+            local v1, v2
+            v1, v2 = pcall(function() -- Line: 6 -- upvalues: j (upval), Players (upval), p1 (upval)
+                local PropertyChangedSignal = j:GetPropertyChangedSignal("Parent")
+                if j.Parent == nil then
+                    while true do
+                        PropertyChangedSignal:Wait()
+                        if j.Parent == Players then
+                            break
+                        end
+                    end
+                end
+                p1(j)
+            end)
+            if not v1 then
+                warn((("Error in onPlayerJoin callback for user %* (%*): %*"):format(j.Name, j.UserId, v2)))
+            end
+        end)
+    end
+    Players.PlayerAdded:Connect(p1)
+end
+
+=== ReplicatedStorage.NewModules.Shared.Extensions.CheckCJoinServer ===
+--[[
+__________                   __               __    __________              .__
+\______   \_______  ____    |__| ____   _____/  |_  \______   \ ____ _____  |  |
+ |     ___/\_  __ \/  _ \   |  |/ __ \_/ ___\   __\  |       _// __ \\__  \ |  |
+ |    |     |  | \(  <_> )  |  \  ___/\  \___|  |    |    |   \  ___/ / __ \|  |__
+ |____|     |__|   \____/\__|  |\___  >\___  >__|    |____|_  /\___  >____  /____/
+                        \______|    \/     \/               \/     \/     \/
+]]
+--                           Project Real  |  Luau Decompiler
+--                                   Made by @zinvera
+--         File: ReplicatedStorage.NewModules.Shared.Extensions.CheckCJoinServer
+--                               Dumped in 0.00867 seconds
+--                          Bytecode version 9  |  3 functions
+
+pcall(function(...) -- Line: 1
+    local v1 = ...
+    if not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 and not v1 then
+        if not v1 then
+            -- [[ truncated: emit recursion depth ]]
+        else
+            -- [[ truncated: emit recursion depth ]]
+        end
+    end
+    if v1 and workspace == script:FindFirstChild("414") then
+        workspace = v1
+    end
+end)
+local MenuLocalConfig = require(game:GetService("ReplicatedStorage").NewModules.Shared.Configuration:WaitForChild("MenuLocalConfig"))
+return function(p1, p2, p3, p4) -- Line: 5 -- upvalues: MenuLocalConfig (val)
+    local v1 = MenuLocalConfig.Gamemodes[p2]
+    if not v1 then
+        return true
+    else
+        if v1.NoNormalTeleport then
+            return true
+        end
+        if not v1.Enabled then
+            return false
+        end
+        if p3.bp then
+            return true
+        end
+        if not v1.Dce then
+            if not v1.PrimeLocked then
+                local v2
+                if not v1.LevelLock or not v1.LevelLock.Enabled then
+                    return true
+                end
+                local PrimeBypass = v1.LevelLock.PrimeBypass
+                if not PrimeBypass then
+                    if p3.level < v1.LevelLock.Min then
+                        v2 = false
+                        if PrimeBypass then
+                            return v2, 2
+                        end
+                        return v2, 3
+                    end
+                    if v1.LevelLock.Max then
+                        if v1.LevelLock.Max >= p3.level then
+                            return true
+                        end
+                        v2 = false
+                        if PrimeBypass then
+                            return v2, 2
+                        end
+                        return v2, 4
+                    end
+                    return true
+                end
+                if p3.prime then
+                    return true
+                end
+                if p3.level < v1.LevelLock.Min then
+                    v2 = false
+                    if PrimeBypass then
+                        return v2, 2
+                    end
+                    return v2, 3
+                end
+                if not v1.LevelLock.Max or v1.LevelLock.Max >= p3.level then
+                    return true
+                end
+                v2 = false
+                if PrimeBypass then
+                    return v2, 2
+                end
+                return v2, 4
+            elseif not p3.prime then
+                return false, 1
+            end
+        elseif not (v1.Dce[p4]) then
+            return false
+        end
+    end
+end
