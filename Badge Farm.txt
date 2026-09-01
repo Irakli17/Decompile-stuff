@@ -1,0 +1,1283 @@
+-- ═══════════════════════════════════════════════════════════
+-- BADGE FARM V1.5.1
+-- ═══════════════════════════════════════════════════════════
+
+local VERSION = "1.5.1"
+
+print("[BF] BADGE FARM V" .. VERSION)
+
+-- ════ CONFIG ════
+
+local IDS = {
+    93249115521759,
+    10427804764,
+    17512571628,
+    18169009346,
+    122659103419088,
+    88282708812651,
+    74395953411817,
+    130954818388365,   -- perma low (teleport restrictions)
+    121781732399469,   -- perma low (server teleport restrictions)
+}
+
+local MIN_VISITS = 7
+local TOTAL = #IDS
+local BADGE_WAIT = 15
+local TP_WAIT = 5
+local PERMA_LOW = {
+    [121781732399469] = true,
+    [130954818388365] = true,
+}
+
+-- ════ ACCOUNT ════
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PLAYER_NAME = "unknown"
+local PLAYER_ID = 0
+
+for i = 1, 30 do
+    if LocalPlayer then
+        break
+    end
+    task.wait(0.5)
+    LocalPlayer = Players.LocalPlayer
+end
+
+if LocalPlayer then
+    PLAYER_NAME = LocalPlayer.Name
+    PLAYER_ID = LocalPlayer.UserId
+end
+
+local DATA_DIR = "BadgeFarmData/" .. tostring(PLAYER_ID)
+local F_STATE = DATA_DIR .. "/state.txt"
+local F_ENGINE = DATA_DIR .. "/engine.lua"
+local F_FAILED = DATA_DIR .. "/failed.txt"
+local F_VISITED = DATA_DIR .. "/visited.txt"
+local F_SKIP = DATA_DIR .. "/skip.txt"
+local F_LOG = DATA_DIR .. "/log.txt"
+local F_START = DATA_DIR .. "/starttime.txt"
+
+-- ════ OUTPUT ════
+
+local rconOK = false
+pcall(function()
+    rconsolecreate()
+    rconsolename("BF " .. PLAYER_NAME)
+    rconOK = true
+end)
+
+local LogBuffer = {}
+
+local function log(msg)
+    msg = tostring(msg)
+    print("[BF] " .. msg)
+    if rconOK then
+        pcall(function()
+            rconsoleprint("[BF] " .. msg .. "\n")
+        end)
+    end
+    if _G.BFL then
+        pcall(function()
+            _G.BFL.Text = msg
+        end)
+    end
+    table.insert(LogBuffer, "[" .. os.date("!%H:%M:%S") .. "] " .. msg)
+end
+
+local function flushLog()
+    local existing = ""
+    pcall(function()
+        if isfile(F_LOG) then
+            existing = readfile(F_LOG) or ""
+        end
+    end)
+    pcall(writefile, F_LOG, existing .. "\n" .. table.concat(LogBuffer, "\n"))
+    LogBuffer = {}
+end
+
+-- ════ GUI ════
+
+pcall(function()
+    local parent = (gethui and gethui()) or game:GetService("CoreGui")
+    local old = parent:FindFirstChild("BFGUI")
+    if old then
+        old:Destroy()
+    end
+
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "BFGUI"
+    gui.ResetOnSpawn = false
+    gui.IgnoreGuiInset = true
+    gui.DisplayOrder = 9999
+    gui.Parent = parent
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 320, 0, 90)
+    frame.Position = UDim2.new(0, 10, 0, 10)
+    frame.BackgroundColor3 = Color3.fromRGB(10, 13, 20)
+    frame.BorderSizePixel = 0
+    frame.Active = true
+    frame.Draggable = true
+    frame.Parent = gui
+
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, -50, 0, 16)
+    title.Position = UDim2.new(0, 8, 0, 5)
+    title.BackgroundTransparency = 1
+    title.Text = "BADGE FARM - " .. PLAYER_NAME
+    title.TextColor3 = Color3.fromRGB(255, 76, 110)
+    title.TextSize = 10
+    title.Font = Enum.Font.Code
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = frame
+
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Size = UDim2.new(0, 22, 0, 22)
+    closeBtn.Position = UDim2.new(1, -26, 0, 4)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(25, 19, 32)
+    closeBtn.BorderSizePixel = 0
+    closeBtn.Text = "-"
+    closeBtn.TextColor3 = Color3.fromRGB(255, 76, 110)
+    closeBtn.TextSize = 14
+    closeBtn.Font = Enum.Font.Code
+    closeBtn.Parent = frame
+    Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 4)
+    closeBtn.MouseButton1Click:Connect(function()
+        frame.Visible = false
+    end)
+
+    game:GetService("UserInputService").InputBegan:Connect(function(input)
+        if input.KeyCode == Enum.KeyCode.RightShift then
+            frame.Visible = not frame.Visible
+        end
+    end)
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -16, 1, -28)
+    lbl.Position = UDim2.new(0, 8, 0, 24)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = "STARTING..."
+    lbl.TextColor3 = Color3.fromRGB(0, 200, 180)
+    lbl.TextSize = 10
+    lbl.Font = Enum.Font.Code
+    lbl.TextWrapped = true
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextYAlignment = Enum.TextYAlignment.Top
+    lbl.Parent = frame
+
+    _G.BFL = lbl
+end)
+
+log("V" .. VERSION .. " | " .. PLAYER_NAME .. " (" .. PLAYER_ID .. ")")
+
+-- ════ FILESYSTEM ════
+
+pcall(function()
+    if not isfolder("BadgeFarmData") then
+        makefolder("BadgeFarmData")
+    end
+end)
+pcall(function()
+    if not isfolder(DATA_DIR) then
+        makefolder(DATA_DIR)
+    end
+end)
+
+local function fr(path)
+    for i = 1, 5 do
+        local ok, c = pcall(readfile, path)
+        if ok and c then
+            return c
+        end
+        task.wait(0.3)
+    end
+    return nil
+end
+
+local function fw(path, content)
+    for i = 1, 3 do
+        local ok = pcall(writefile, path, content)
+        if ok then
+            return true
+        end
+        task.wait(0.2)
+    end
+    return false
+end
+
+local function fe(path)
+    local ok, ex = pcall(isfile, path)
+    return ok and ex
+end
+
+local function fd(path)
+    pcall(delfile, path)
+end
+
+local function listLoad(path)
+    local set = {}
+    local content = fr(path)
+    if content then
+        for line in content:gmatch("[^\r\n]+") do
+            local n = tonumber(line)
+            if n then
+                set[n] = true
+            end
+        end
+    end
+    return set
+end
+
+local function listAdd(path, n)
+    local set = listLoad(path)
+    if not set[n] then
+        set[n] = true
+        local lines = {}
+        for k in pairs(set) do
+            table.insert(lines, tostring(k))
+        end
+        fw(path, table.concat(lines, "\n"))
+    end
+end
+
+local function listCount(path)
+    local set = listLoad(path)
+    local c = 0
+    for _ in pairs(set) do
+        c = c + 1
+    end
+    return c
+end
+
+-- ════ HTTP ════
+
+local function httpGet(url)
+    local result = nil
+    pcall(function()
+        if type(request) == "function" then
+            local res = request({Url = url, Method = "GET"})
+            if res and res.StatusCode == 200 then
+                result = res.Body
+            end
+        end
+    end)
+    if not result then
+        pcall(function()
+            result = game:HttpGet(url)
+        end)
+    end
+    return result
+end
+
+local function jsonDecode(str)
+    if not str or str == "" then
+        return nil
+    end
+    local ok, data = pcall(function()
+        return game:GetService("HttpService"):JSONDecode(str)
+    end)
+    if ok then
+        return data
+    end
+    return nil
+end
+
+local function getUniverseId(placeId)
+    local body = httpGet("https://apis.roblox.com/universes/v1/places/" .. placeId .. "/universe")
+    if body then
+        local data = jsonDecode(body)
+        if data and data.universeId then
+            return data.universeId
+        end
+    end
+    return nil
+end
+
+-- ════ BADGES ════
+
+local BadgeService = game:GetService("BadgeService")
+
+local function getUniverseBadges(universeId)
+    local badges = {}
+    local body = httpGet("https://badges.roblox.com/v1/universes/" .. universeId .. "/badges?limit=100&sortOrder=Asc")
+    if body then
+        local data = jsonDecode(body)
+        if data and data.data then
+            for _, badge in ipairs(data.data) do
+                table.insert(badges, {
+                    id = badge.id,
+                    name = badge.name or "unknown",
+                    enabled = badge.enabled ~= false,
+                })
+            end
+        end
+    end
+    return badges
+end
+
+local function userHasBadge(userId, badgeId)
+    local ok, has = pcall(function()
+        return BadgeService:UserHasBadgeAsync(userId, badgeId)
+    end)
+    if ok then
+        return has
+    end
+    return nil
+end
+
+local function isWelcomeBadge(badgeName)
+    local n = badgeName:lower()
+    if n:find("welcome") then return true end
+    if n:find("you played") then return true end
+    if n:find("you joined") then return true end
+    if n:find("visited") then return true end
+    if n:find("joined") then return true end
+    if n:find("first join") then return true end
+    return false
+end
+
+local function findWelcomeBadge(placeId)
+    local uid = getUniverseId(placeId)
+    if not uid then
+        return nil, nil
+    end
+    local badges = getUniverseBadges(uid)
+    for _, b in ipairs(badges) do
+        if b.enabled and isWelcomeBadge(b.name) then
+            return b, uid
+        end
+    end
+    return nil, uid
+end
+
+-- ════ TELEPORT ════
+
+local spoofGameId = nil
+local hookInstalled = false
+
+local function installHook()
+    if hookInstalled then
+        return
+    end
+    local oldIdx
+    local newFunc
+    newFunc = function(t, k)
+        if k == "GameId" and spoofGameId then
+            return spoofGameId
+        end
+        if oldIdx then
+            return oldIdx(t, k)
+        end
+    end
+    if type(newcclosure) == "function" then
+        pcall(function()
+            newFunc = newcclosure(newFunc)
+        end)
+    end
+    local ok, result = pcall(hookmetamethod, game, "__index", newFunc)
+    if ok then
+        oldIdx = result
+        hookInstalled = true
+        log("[hook] installed")
+    else
+        log("[hook] failed")
+    end
+end
+
+local function tryTeleport(placeId)
+    local TS = game:GetService("TeleportService")
+    local lp = Players.LocalPlayer
+    if not lp then
+        return false
+    end
+
+    local uid = getUniverseId(placeId)
+    log("target: " .. placeId .. " (universe " .. (uid or "?") .. ")")
+
+    pcall(setfflag, "FFlagTeleportServiceRestrictCrossUniverse", "False")
+    pcall(setfflag, "FFlagTeleportCrossUniverseCheck", "False")
+    pcall(setfflag, "FFlagTeleportServiceCrossUniverse", "False")
+    pcall(setfflag, "FFlagRestrictCrossUniverseTeleport", "False")
+
+    installHook()
+
+    local before = game.PlaceId
+    log("currently in: " .. before)
+
+    -- method 1: Teleport
+    if hookInstalled and uid then
+        spoofGameId = uid
+    end
+
+    log("[1/2] Teleport...")
+    local ok1, err1 = pcall(function()
+        TS:Teleport(placeId)
+    end)
+
+    if ok1 then
+        log("[1/2] call ok, waiting " .. TP_WAIT .. "s...")
+        spoofGameId = nil
+        local s = tick()
+        while tick() - s < TP_WAIT do
+            task.wait(0.5)
+            if game.PlaceId ~= before then
+                log("[1/2] PLACE CHANGED -- SUCCESS")
+                return true
+            end
+        end
+        log("[1/2] failed (still in " .. game.PlaceId .. ")")
+    else
+        log("[1/2] errored: " .. tostring(err1))
+        spoofGameId = nil
+    end
+
+    -- method 2: PlaceInstance
+    log("[2/2] PlaceInstance...")
+    local sb = httpGet("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100")
+    if sb then
+        local sd = jsonDecode(sb)
+        if sd and sd.data and sd.data[1] then
+            local jobId = sd.data[1].id
+            log("[2/2] server: " .. tostring(jobId))
+
+            if hookInstalled and uid then
+                spoofGameId = uid
+            end
+
+            local ok2, err2 = pcall(function()
+                TS:TeleportToPlaceInstance(placeId, jobId, lp)
+            end)
+
+            if ok2 then
+                log("[2/2] call ok, waiting " .. TP_WAIT .. "s...")
+                spoofGameId = nil
+                local s = tick()
+                while tick() - s < TP_WAIT do
+                    task.wait(0.5)
+                    if game.PlaceId ~= before then
+                        log("[2/2] PLACE CHANGED -- SUCCESS")
+                        return true
+                    end
+                end
+                log("[2/2] failed")
+            else
+                log("[2/2] errored: " .. tostring(err2))
+                spoofGameId = nil
+            end
+        else
+            log("[2/2] no servers found")
+        end
+    else
+        log("[2/2] could not fetch servers")
+    end
+
+    spoofGameId = nil
+    log("TELEPORT FAILED for " .. placeId)
+    return false
+end
+
+-- ════ FIND NEXT ════
+
+local function findNextGame()
+    local visited = listLoad(F_VISITED)
+    local failed = listLoad(F_FAILED)
+    local skip = listLoad(F_SKIP)
+    local normal = {}
+    local lowPriority = {}
+    for i, pid in ipairs(IDS) do
+        if not visited[pid] and not skip[pid] then
+            if PERMA_LOW[pid] or failed[pid] then
+                table.insert(lowPriority, {index = i, id = pid})
+            else
+                table.insert(normal, {index = i, id = pid})
+            end
+        end
+    end
+    if #normal > 0 then
+        return normal[1].index, normal[1].id
+    end
+    if #lowPriority > 0 then
+        return lowPriority[1].index, lowPriority[1].id
+    end
+    return nil, nil
+end
+
+-- ════ PROCESS TARGET GAME ════
+
+local function processTargetGame(placeId)
+    -- shared lock: whichever script (main or engine) runs first claims the game
+    if _G.BF_PROCESSED == placeId then
+        log("already processed " .. placeId .. " this session (lock)")
+        return
+    end
+    _G.BF_PROCESSED = placeId
+
+    log("TARGET GAME: " .. placeId)
+
+    local welcome, uid = findWelcomeBadge(placeId)
+    if welcome then
+        local has = userHasBadge(PLAYER_ID, welcome.id)
+        if has == true then
+            log('welcome already owned: "' .. welcome.name .. '"')
+        else
+            log('waiting ' .. BADGE_WAIT .. 's for "' .. welcome.name .. '"...')
+            local start = tick()
+            local awarded = false
+            while tick() - start < BADGE_WAIT do
+                local h = userHasBadge(PLAYER_ID, welcome.id)
+                if h == true then
+                    log('WELCOME BADGE AWARDED: "' .. welcome.name .. '"')
+                    awarded = true
+                    break
+                end
+                task.wait(2)
+            end
+            if not awarded then
+                log("not awarded in " .. BADGE_WAIT .. "s, marking visited anyway")
+            end
+        end
+    else
+        log("no welcome badge, waiting " .. BADGE_WAIT .. "s")
+        task.wait(BADGE_WAIT)
+    end
+
+    listAdd(F_VISITED, placeId)
+    log("VISITED: " .. placeId)
+
+    local vCount = listCount(F_VISITED)
+    log("progress: " .. vCount .. "/" .. MIN_VISITS)
+
+    if vCount >= MIN_VISITS then
+        log("GOAL REACHED for " .. PLAYER_NAME)
+        fd(F_STATE)
+        task.wait(1)
+        local lp = Players.LocalPlayer
+        if lp then
+            lp:Kick("BADGE OBTAINING COMPLETE -- " .. vCount .. "/" .. MIN_VISITS)
+        end
+    end
+end
+
+-- ════ SAVE ENGINE ════
+
+local function saveEngineAndQueue()
+    local engine = [=[
+-- BF ENGINE V1.5.1
+local ok, err = pcall(function()
+
+local Players = game:GetService("Players")
+local BadgeService = game:GetService("BadgeService")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+
+local function log(m)
+    m = tostring(m)
+    print("[BF] " .. m)
+    pcall(function()
+        rconsoleprint("[BF] " .. m .. "\n")
+    end)
+    if _G.BFL then
+        pcall(function()
+            _G.BFL.Text = m
+        end)
+    end
+end
+
+log("engine started")
+
+local IDS = {
+    93249115521759,
+    10427804764,
+    17512571628,
+    18169009346,
+    122659103419088,
+    88282708812651,
+    74395953411817,
+    130954818388365,
+    121781732399469,
+}
+local TOTAL = #IDS
+local MIN_VISITS = 7
+local BADGE_WAIT = 15
+local TP_WAIT = 5
+local PERMA_LOW = {
+    [121781732399469] = true,
+    [130954818388365] = true,
+}
+
+-- wait for player
+local lp = Players.LocalPlayer
+for i = 1, 30 do
+    if lp then break end
+    task.wait(1)
+    lp = Players.LocalPlayer
+end
+if not lp then
+    log("ERROR: no local player")
+    return
+end
+
+local playerId = lp.UserId
+local playerName = lp.Name
+local DATA_DIR = "BadgeFarmData/" .. tostring(playerId)
+local F_STATE = DATA_DIR .. "/state.txt"
+local F_ENGINE = DATA_DIR .. "/engine.lua"
+local F_FAILED = DATA_DIR .. "/failed.txt"
+local F_VISITED = DATA_DIR .. "/visited.txt"
+local F_SKIP = DATA_DIR .. "/skip.txt"
+
+-- wait for game load
+log("waiting for game...")
+local loadStart = tick()
+while not game:IsLoaded() do
+    if tick() - loadStart > 60 then break end
+    task.wait(0.5)
+end
+log("loaded: " .. game.PlaceId)
+
+if not lp.Character then
+    local spawned = false
+    local c = lp.CharacterAdded:Connect(function() spawned = true end)
+    local s = tick()
+    while not spawned and tick() - s < 30 do task.wait(0.5) end
+    c:Disconnect()
+end
+task.wait(2)
+
+-- file helpers
+local function fr(p)
+    for i = 1, 5 do
+        local ok, c = pcall(readfile, p)
+        if ok and c then return c end
+        task.wait(0.3)
+    end
+    return nil
+end
+
+local function fw(p, c)
+    for i = 1, 3 do
+        local ok = pcall(writefile, p, c)
+        if ok then return true end
+        task.wait(0.2)
+    end
+    return false
+end
+
+local function fe(p)
+    local ok, e = pcall(isfile, p)
+    return ok and e
+end
+
+local function fd(p)
+    pcall(delfile, p)
+end
+
+local function listLoad(p)
+    local s = {}
+    local c = fr(p)
+    if c then
+        for l in c:gmatch("[^\r\n]+") do
+            local n = tonumber(l)
+            if n then s[n] = true end
+        end
+    end
+    return s
+end
+
+local function listAdd(p, n)
+    local s = listLoad(p)
+    if not s[n] then
+        s[n] = true
+        local lines = {}
+        for k in pairs(s) do table.insert(lines, tostring(k)) end
+        fw(p, table.concat(lines, "\n"))
+    end
+end
+
+local function listCount(p)
+    local s = listLoad(p)
+    local c = 0
+    for _ in pairs(s) do c = c + 1 end
+    return c
+end
+
+-- check state
+local state = fr(F_STATE)
+if not state then
+    log("no state, inactive")
+    return
+end
+state = tonumber(state)
+if not state then
+    log("invalid state")
+    return
+end
+log("farm active for " .. playerName)
+
+-- http helpers
+local function httpGet(url)
+    local r = nil
+    pcall(function()
+        if type(request) == "function" then
+            local res = request({Url = url, Method = "GET"})
+            if res and res.StatusCode == 200 then r = res.Body end
+        end
+    end)
+    if not r then
+        pcall(function() r = game:HttpGet(url) end)
+    end
+    return r
+end
+
+local function jsonDecode(s)
+    if not s or s == "" then return nil end
+    local ok, d = pcall(function()
+        return HttpService:JSONDecode(s)
+    end)
+    if ok then return d end
+    return nil
+end
+
+local function getUniverseId(placeId)
+    local b = httpGet("https://apis.roblox.com/universes/v1/places/" .. tostring(placeId) .. "/universe")
+    if b then
+        local d = jsonDecode(b)
+        if d and d.universeId then return d.universeId end
+    end
+    return nil
+end
+
+local function getUniverseBadges(universeId)
+    local badges = {}
+    local b = httpGet("https://badges.roblox.com/v1/universes/" .. tostring(universeId) .. "/badges?limit=100&sortOrder=Asc")
+    if b then
+        local d = jsonDecode(b)
+        if d and d.data then
+            for _, badge in ipairs(d.data) do
+                table.insert(badges, {
+                    id = badge.id,
+                    name = badge.name or "unknown",
+                    enabled = badge.enabled ~= false,
+                })
+            end
+        end
+    end
+    return badges
+end
+
+local function userHasBadge(userId, badgeId)
+    local ok, has = pcall(function()
+        return BadgeService:UserHasBadgeAsync(userId, badgeId)
+    end)
+    if ok then return has end
+    return nil
+end
+
+local function isWelcomeBadge(badgeName)
+    local n = badgeName:lower()
+    if n:find("welcome") then return true end
+    if n:find("you played") then return true end
+    if n:find("you joined") then return true end
+    if n:find("visited") then return true end
+    if n:find("joined") then return true end
+    if n:find("first join") then return true end
+    return false
+end
+
+-- process current game
+local currentPlace = game.PlaceId
+log("in game: " .. tostring(currentPlace))
+
+local visitedSet = listLoad(F_VISITED)
+local inList = false
+for _, pid in ipairs(IDS) do
+    if pid == currentPlace then
+        inList = true
+        break
+    end
+end
+
+if inList and not visitedSet[currentPlace] then
+    -- shared lock
+    if _G.BF_PROCESSED == currentPlace then
+        log("already processed (lock), finding next")
+    else
+        _G.BF_PROCESSED = currentPlace
+        log("TARGET GAME: " .. tostring(currentPlace))
+
+        local uid = getUniverseId(currentPlace)
+        local welcome = nil
+        if uid then
+            local badges = getUniverseBadges(uid)
+            for _, b in ipairs(badges) do
+                if b.enabled and isWelcomeBadge(b.name) then
+                    welcome = b
+                    break
+                end
+            end
+        end
+
+        if welcome then
+            local has = userHasBadge(playerId, welcome.id)
+            if has == true then
+                log('welcome owned: "' .. welcome.name .. '"')
+            else
+                log('waiting ' .. BADGE_WAIT .. 's for "' .. welcome.name .. '"...')
+                local start = tick()
+                local awarded = false
+                while tick() - start < BADGE_WAIT do
+                    local h = userHasBadge(playerId, welcome.id)
+                    if h == true then
+                        log('WELCOME BADGE AWARDED: "' .. welcome.name .. '"')
+                        awarded = true
+                        break
+                    end
+                    task.wait(2)
+                end
+                if not awarded then
+                    log("not awarded in " .. BADGE_WAIT .. "s")
+                end
+            end
+        else
+            log("no welcome badge, waiting " .. BADGE_WAIT .. "s")
+            task.wait(BADGE_WAIT)
+        end
+
+        listAdd(F_VISITED, currentPlace)
+        log("VISITED: " .. tostring(currentPlace))
+
+        local vCount = listCount(F_VISITED)
+        log("progress: " .. vCount .. "/" .. MIN_VISITS)
+
+        if vCount >= MIN_VISITS then
+            log("GOAL REACHED for " .. playerName)
+            fd(F_STATE)
+            task.wait(1)
+            lp:Kick("BADGE OBTAINING COMPLETE -- " .. vCount .. "/" .. MIN_VISITS)
+            return
+        end
+    end
+elseif inList then
+    log("already visited " .. tostring(currentPlace))
+else
+    log("not a target game")
+end
+
+-- find next
+local function findNext()
+    local visited = listLoad(F_VISITED)
+    local failed = listLoad(F_FAILED)
+    local skip = listLoad(F_SKIP)
+    local normal = {}
+    local lowPriority = {}
+    for i, pid in ipairs(IDS) do
+        if not visited[pid] and not skip[pid] then
+            if PERMA_LOW[pid] or failed[pid] then
+                table.insert(lowPriority, {index = i, id = pid})
+            else
+                table.insert(normal, {index = i, id = pid})
+            end
+        end
+    end
+    if #normal > 0 then return normal[1].index, normal[1].id end
+    if #lowPriority > 0 then return lowPriority[1].index, lowPriority[1].id end
+    return nil, nil
+end
+
+local nextIdx, nextId = findNext()
+
+if not nextId then
+    log("ALL DONE for " .. playerName)
+    local vCount = listCount(F_VISITED)
+    fd(F_STATE)
+    task.wait(1)
+    lp:Kick("BADGE OBTAINING COMPLETE -- " .. vCount .. " visits")
+    return
+end
+
+-- welcome pre-check
+local skipSet = listLoad(F_SKIP)
+if not skipSet[nextId] then
+    local uid = getUniverseId(nextId)
+    if uid then
+        local badges = getUniverseBadges(uid)
+        local welcome = nil
+        for _, b in ipairs(badges) do
+            if b.enabled and isWelcomeBadge(b.name) then
+                welcome = b
+                break
+            end
+        end
+        if welcome then
+            local has = userHasBadge(playerId, welcome.id)
+            if has == true then
+                log(tostring(nextId) .. ' welcome owned ("' .. welcome.name .. '"), skipping')
+                listAdd(F_SKIP, nextId)
+                listAdd(F_VISITED, nextId)
+                local nIdx, nId = findNext()
+                if nId then
+                    nextId = nId
+                else
+                    log("all remaining have welcome badges")
+                    local vCount = listCount(F_VISITED)
+                    fd(F_STATE)
+                    task.wait(1)
+                    lp:Kick("BADGE OBTAINING COMPLETE -- " .. vCount .. " visits")
+                    return
+                end
+            end
+        end
+    end
+end
+
+-- queue engine
+if fe(F_ENGINE) then
+    pcall(function()
+        queue_on_teleport(readfile(F_ENGINE))
+    end)
+    log("engine queued")
+end
+
+-- teleport
+log("teleporting to " .. tostring(nextId))
+
+local spoofGameId = nil
+local hookOK = false
+local oldIdx
+
+local function installHook()
+    local newFunc
+    newFunc = function(t, k)
+        if k == "GameId" and spoofGameId then return spoofGameId end
+        if oldIdx then return oldIdx(t, k) end
+    end
+    if type(newcclosure) == "function" then
+        pcall(function()
+            newFunc = newcclosure(newFunc)
+        end)
+    end
+    local ok, result = pcall(hookmetamethod, game, "__index", newFunc)
+    if ok then
+        oldIdx = result
+        hookOK = true
+    end
+end
+
+local uid = getUniverseId(nextId)
+local before = game.PlaceId
+
+pcall(setfflag, "FFlagTeleportServiceRestrictCrossUniverse", "False")
+pcall(setfflag, "FFlagTeleportCrossUniverseCheck", "False")
+pcall(setfflag, "FFlagTeleportServiceCrossUniverse", "False")
+pcall(setfflag, "FFlagRestrictCrossUniverseTeleport", "False")
+
+installHook()
+if hookOK and uid then
+    spoofGameId = uid
+end
+
+log("[1/2] Teleport...")
+local ok1 = pcall(function()
+    TeleportService:Teleport(nextId)
+end)
+if ok1 then
+    spoofGameId = nil
+    local s = tick()
+    while tick() - s < TP_WAIT do
+        task.wait(0.5)
+        if game.PlaceId ~= before then
+            log("[1/2] TELEPORT SUCCESS")
+            return
+        end
+    end
+    log("[1/2] failed")
+else
+    log("[1/2] errored")
+    spoofGameId = nil
+end
+
+log("[2/2] PlaceInstance...")
+local sb = httpGet("https://games.roblox.com/v1/games/" .. tostring(nextId) .. "/servers/Public?sortOrder=Asc&limit=100")
+if sb then
+    local sd = jsonDecode(sb)
+    if sd and sd.data and sd.data[1] then
+        local jobId = sd.data[1].id
+        if hookOK and uid then
+            spoofGameId = uid
+        end
+        local ok2 = pcall(function()
+            TeleportService:TeleportToPlaceInstance(nextId, jobId, lp)
+        end)
+        if ok2 then
+            spoofGameId = nil
+            local s = tick()
+            while tick() - s < TP_WAIT do
+                task.wait(0.5)
+                if game.PlaceId ~= before then
+                    log("[2/2] TELEPORT SUCCESS")
+                    return
+                end
+            end
+        end
+        spoofGameId = nil
+    else
+        log("[2/2] no servers")
+    end
+else
+    log("[2/2] no server data")
+end
+
+log("TELEPORT FAILED for " .. tostring(nextId))
+listAdd(F_FAILED, nextId)
+
+-- try next
+local n2Idx, n2Id = findNext()
+if n2Id then
+    log("trying next: " .. tostring(n2Id))
+    if fe(F_ENGINE) then
+        pcall(function()
+            queue_on_teleport(readfile(F_ENGINE))
+        end)
+    end
+
+    local uid2 = getUniverseId(n2Id)
+    if hookOK and uid2 then
+        spoofGameId = uid2
+    end
+    local ok4 = pcall(function()
+        TeleportService:Teleport(n2Id)
+    end)
+    spoofGameId = nil
+
+    if ok4 then
+        local s = tick()
+        while tick() - s < TP_WAIT do
+            task.wait(0.5)
+            if game.PlaceId ~= before then
+                log("TELEPORT SUCCESS for " .. tostring(n2Id))
+                return
+            end
+        end
+    end
+
+    listAdd(F_FAILED, n2Id)
+    log("multiple failures, join manually or re-execute")
+else
+    log("no more games, join manually or re-execute")
+end
+
+end)
+
+if not ok then
+    print("[BF] ENGINE ERROR: " .. tostring(err))
+    pcall(function()
+        rconsoleprint("[BF] ENGINE ERROR: " .. tostring(err) .. "\n")
+    end)
+end
+]=]
+
+    fw(F_ENGINE, engine)
+    log("engine saved")
+
+    pcall(function()
+        queue_on_teleport(engine)
+    end)
+    log("engine queued")
+end
+
+-- ════ MAIN ════
+
+local function main()
+    -- prevent this script from running twice in same session
+    if _G.BF_MAIN_RAN then
+        log("main already ran this session, skipping")
+        return
+    end
+    _G.BF_MAIN_RAN = true
+
+    log("badge farm V" .. VERSION)
+    log("account: " .. PLAYER_NAME .. " (" .. PLAYER_ID .. ")")
+
+    if not fe(F_START) then
+        fw(F_START, tostring(os.time()))
+    end
+
+    local lp = Players.LocalPlayer
+    local state = fr(F_STATE)
+    state = state and tonumber(state)
+
+    -- save engine + queue
+    saveEngineAndQueue()
+
+    -- ══ FIRST RUN ══
+    if not state then
+        log("FIRST RUN for " .. PLAYER_NAME)
+
+        while not game:IsLoaded() do
+            task.wait(0.5)
+        end
+        task.wait(2)
+
+        fw(F_STATE, "1")
+
+        -- preflight: check welcome badges for all games
+        log("--- preflight ---")
+        for i, placeId in ipairs(IDS) do
+            local welcome, uid = findWelcomeBadge(placeId)
+            if welcome then
+                local has = userHasBadge(PLAYER_ID, welcome.id)
+                if has == true then
+                    log('  ' .. placeId .. ': welcome owned ("' .. welcome.name .. '") -- skip')
+                    listAdd(F_SKIP, placeId)
+                    listAdd(F_VISITED, placeId)
+                else
+                    log('  ' .. placeId .. ': welcome needed ("' .. welcome.name .. '")')
+                end
+            else
+                log('  ' .. placeId .. ': no welcome badge')
+            end
+            task.wait(0.3)
+        end
+        log("--- preflight done ---")
+        log("")
+
+        local visitedCount = listCount(F_VISITED)
+        if visitedCount >= MIN_VISITS then
+            log("goal already met (" .. visitedCount .. "/" .. MIN_VISITS .. ")")
+            fd(F_STATE)
+            task.wait(1)
+            if lp then
+                lp:Kick("BADGE OBTAINING COMPLETE -- " .. visitedCount .. "/" .. MIN_VISITS)
+            end
+            return
+        end
+
+        local nextIdx, nextId = findNextGame()
+        if not nextId then
+            log("all games have welcome badges already")
+            fd(F_STATE)
+            task.wait(1)
+            if lp then
+                lp:Kick("BADGE OBTAINING COMPLETE")
+            end
+            return
+        end
+
+        log("starting game " .. nextIdx .. "/" .. TOTAL .. ": " .. nextId)
+        local teleported = tryTeleport(nextId)
+
+        if not teleported then
+            log("BLOCKED: " .. nextId)
+            listAdd(F_FAILED, nextId)
+
+            local n2Idx, n2Id = findNextGame()
+            if n2Id then
+                log("trying: " .. n2Id)
+                local tp2 = tryTeleport(n2Id)
+                if not tp2 then
+                    listAdd(F_FAILED, n2Id)
+                    log("multiple blocks, re-execute to retry")
+                end
+            end
+        end
+        flushLog()
+        return
+    end
+
+    -- ══ RESUME ══
+    log("RESUMING for " .. PLAYER_NAME)
+
+    while not game:IsLoaded() do
+        task.wait(0.5)
+    end
+
+    if lp and not lp.Character then
+        local spawned = false
+        local c = lp.CharacterAdded:Connect(function()
+            spawned = true
+        end)
+        local s = tick()
+        while not spawned and tick() - s < 30 do
+            task.wait(0.5)
+        end
+        c:Disconnect()
+    end
+    task.wait(2)
+
+    local currentPlace = game.PlaceId
+    log("current game: " .. currentPlace)
+
+    local inList = false
+    for _, pid in ipairs(IDS) do
+        if pid == currentPlace then
+            inList = true
+            break
+        end
+    end
+
+    if inList then
+        local visitedSet = listLoad(F_VISITED)
+        if not visitedSet[currentPlace] then
+            processTargetGame(currentPlace)
+        else
+            log("already visited " .. currentPlace)
+        end
+    else
+        log("not a target game")
+    end
+
+    local visitedCount = listCount(F_VISITED)
+    local skipCount = listCount(F_SKIP)
+
+    if visitedCount + skipCount >= TOTAL then
+        log("all games done")
+        fd(F_STATE)
+        task.wait(1)
+        if lp then
+            lp:Kick("BADGE OBTAINING COMPLETE -- " .. visitedCount .. " visits")
+        end
+        return
+    end
+
+    local nextIdx, nextId = findNextGame()
+    if not nextId then
+        log("no more games")
+        fd(F_STATE)
+        return
+    end
+
+    log("next: " .. nextId)
+    local okTp = tryTeleport(nextId)
+
+    if not okTp then
+        log("BLOCKED: " .. nextId)
+        listAdd(F_FAILED, nextId)
+
+        local n2Idx, n2Id = findNextGame()
+        if n2Id then
+            log("trying: " .. n2Id)
+            local ok2 = tryTeleport(n2Id)
+            if not ok2 then
+                listAdd(F_FAILED, n2Id)
+                log("multiple blocks, re-execute to retry")
+            end
+        else
+            log("all blocked, re-execute or join manually")
+        end
+    end
+
+    flushLog()
+end
+
+-- ════ RUN ════
+
+local ok, err = pcall(main)
+if not ok then
+    log("FATAL: " .. tostring(err))
+end
+
+log("done")
+flushLog()
