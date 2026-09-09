@@ -52,3 +52,5 @@ bosz_matthew123|Teleport
 SSOP_BEKONG|ESP
 mogis111|Aimbot
 sanpedra92|Aimbot
+Jnkhvghvghvgv|Silent Aim (All Headshots)
+dusterd7|Ragebot
